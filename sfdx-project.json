@@ -9,7 +9,11 @@
       "default": false
     },
     {
-      "path": "fflib",
+      "path": "flow-maker",
+      "default": false
+    },
+    {
+      "path": "libs",
       "default": false
     }
   ],
