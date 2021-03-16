@@ -1,5 +1,7 @@
 global with sharing class FlowVFPage {
 
+    public static final String ERROR_FLOW_NAME_MISSING = 'Flow name not specified';
+
     /**
      * Base Template for Apex Pages, use in junction with m_baseTemplate
      *
@@ -9,7 +11,7 @@ global with sharing class FlowVFPage {
      *
      * example: <flow:interview name="{Create_POV_Opportunity}" finishLocation="/{!$CurrentPage.parameters.id}"><apex:param name="recordId" value="{!Opportunity.Id}"/></flow:interview>
      */
-    private static final String BASE_TEMPLATE = '<apex:page><flow:interview name="{0}" {1}">{2}</flow:interview></apex:page>';
+    private static final String BASE_TEMPLATE = '<apex:page><flow:interview name="{0}" {1}>{2}</flow:interview></apex:page>';
 
     /**
      * Template used to prefill flow parameters, usage described below
@@ -18,7 +20,7 @@ global with sharing class FlowVFPage {
      *
      * example: <apex:param name="recordId" value="{!{$CurrentPage.parameters.id}"/>
      */
-    private static final String PARAMETER_TEMPLATE = '<apex:param name="{0}" value="{!{1}}"/>';
+    private static final String PARAMETER_TEMPLATE = '<apex:param name="{0}" value="{1}"/>';
 
     private PageAttributes m_pageAttributes;
     private FlowAttributes m_flowAttributes;
@@ -58,8 +60,25 @@ global with sharing class FlowVFPage {
         return this;
     }
 
+    global FlowVFPage withAdditionalParameter(String key, String value) {
+        this.m_flowAttributes.additionalParameters.put(key, value);
+        return this;
+    }
+
+    global FlowVFPage withAdditionalParameters(Map<String, String> values) {
+        for(String key : values.keySet()) {
+            withAdditionalParameter(key, values.get(key));
+        }
+        return this;
+    }
+
     global FlowVFPage buildMetadataPackage() {
         this.m_apexPage = new MetadataService.ApexPage();
+
+        String errorMsg = validate();
+        if(String.isNotBlank(errorMsg)) {
+            throw new FlowVFPageException(errorMsg);
+        }
 
         this.m_apexPage.apiVersion = this.m_pageAttributes.apiVersion;
         this.m_apexPage.fullName = this.m_pageAttributes.fullName;
@@ -70,26 +89,51 @@ global with sharing class FlowVFPage {
     }
 
     /**
-     * Uses the Flow and Page Attributes to generate the content of the apex page
+     * Validates all of the inputs to ensure tha the Metadata generation has
+     * the best chance to succeed.
+     */
+    @TestVisible
+    private String validate() {
+        List<String> errors = new List<String>();
+        if(String.isBlank(this.m_flowAttributes.flowName)) {
+            errors.add(ERROR_FLOW_NAME_MISSING);
+        }
+
+        return String.join(errors, '\n');
+    }
+
+    private static String formattedTemplate(String template, List<String> values) {
+        for(Integer i = 0; i < values.size(); i++) {
+            String index = '{'+i+'}';
+            template = template.replace(index, values[i]);
+        }
+        return template;
+    }
+
+    /**
+     * Uses the Flow and Page Attributes to generate the content of the apex page.
      */
     @TestVisible
     private String prepareContent() {
         String parameters = '';
         if(this.m_flowAttributes.withRecordId) {
-            parameters += String.format(PARAMETER_TEMPLATE, new List<String>{'recordId', '{!$CurrentPage.parameters.id}'});
+            parameters += formattedTemplate(PARAMETER_TEMPLATE, new List<String>{'recordId', '{!$CurrentPage.parameters.id}'});
         }
 
+        this.m_flowAttributes.additionalParameters.remove(null);
+        this.m_flowAttributes.additionalParameters.remove('');
         for(String key : this.m_flowAttributes.additionalParameters.keySet()) {
             String value = this.m_flowAttributes.additionalParameters.get(key);
 
-            parameters += String.format(PARAMETER_TEMPLATE, new List<String>{key, value});
+            parameters += formattedTemplate(PARAMETER_TEMPLATE, new List<String>{key, value});
         }
 
         String finishLocation = '';
         if(this.m_pageAttributes.reloadOnFinish) {
             finishLocation = 'finishLocation="{!$CurrentPage.URL}"';
         }
-        String content = String.format(BASE_TEMPLATE, new List<String>{this.m_flowAttributes.flowName, finishLocation, parameters});
+
+        String content = formattedTemplate(BASE_TEMPLATE, new List<String>{this.m_flowAttributes.flowName, finishLocation, parameters});
 
         return content;
     }
@@ -105,7 +149,7 @@ global with sharing class FlowVFPage {
         global Integer apiVersion = 50;
         global String fullName;
         global String label;
-        global Boolean reloadOnFinish = true;
+        global Boolean reloadOnFinish = false;
     }
 
     global class FlowAttributes {
@@ -115,4 +159,6 @@ global with sharing class FlowVFPage {
         global Map<String, String> additionalParameters = new Map<String, String>();
         global String label;
     }
+
+    global class FlowVFPageException extends Exception{}
 }
