@@ -15,12 +15,12 @@ public class FlowVFPageTest {
 
     @isTest
     private static void prepareContent_reloadOnFinish() {
-        FlowVFPage.PageAttributes pAttributes = new FlowVFPage.PageAttributes();
+        Flow.ApexPageAttributes pAttributes = new Flow.ApexPageAttributes();
         pAttributes.reloadOnFinish = true;
 
         String content = new FlowVFPage()
             .withFlowName('My_Test_Flow')
-            .withPageAttributes(pAttributes)
+            .withApexPageAttributes(pAttributes)
             .prepareContent();
 
         System.assert(content.contains('finishLocation="{!$CurrentPage.URL}"'), 'Finish location was not inputed into the content');
@@ -89,6 +89,7 @@ public class FlowVFPageTest {
             + '<apex:param name="VAR_RecordType" value="Business"/>'
             + '</flow:interview></apex:page>';
         String actual = EncodingUtil.base64Decode(thePage.content).toString();
+
         System.assertEquals(expected, actual, 'Content did not match the expected');
     }
 }
