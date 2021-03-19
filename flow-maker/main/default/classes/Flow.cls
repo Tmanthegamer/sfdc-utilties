@@ -25,4 +25,7 @@ global class Flow {
         global String label;
     }
 
+    /** Flow Exception */
+    global class FlowException extends Exception {}
+
 }

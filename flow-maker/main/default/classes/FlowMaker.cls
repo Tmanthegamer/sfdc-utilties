@@ -1,38 +1,44 @@
 global with sharing class FlowMaker {
 
-    global static Response createVFPage() {
-        // Define Metadata item to create a Visualforce page to display the above field
-        MetadataService.ApexPage apexPage = new MetadataService.ApexPage();
-        apexPage.apiVersion = 50;
-        apexPage.fullName = objectName.toLowercase();
-        apexPage.label = objectName + ' Page';
-        apexPage.content = EncodingUtil.base64Encode(Blob.valueOf(
-            '<apex:page>'+
-                '{!' + objectName + '__c.TestField1__c}' +
-                '{!' + objectName + '__c.TestField2__c}' +
-            '</apex:page>'));
+    global static FlowMakerResponse createVFPage() {
 
-        // Create components in the correct order
-        MetadataService.MetadataPort service = createService();
-        List<MetadataService.SaveResult> results =
-            service.createMetadata(
-                new MetadataService.Metadata[] { customObject });
-        handleSaveResults(results[0]);
-        results =
-            service.createMetadata(
-                new MetadataService.Metadata[] { customField1, customField2 });
-        handleSaveResults(results[0]);
-        handleSaveResults(results[1]);
-        results =
-            service.createMetadata(
-                new MetadataService.Metadata[] { apexPage });
-        handleSaveResults(results[0]);
+        FlowMakerResponse res = new FlowMakerResponse();
+        try {
+            MetadataService.ApexPage apexPage = new FlowVFPage()
+                .withFlowName('Create_Contact')
+                .withVFName('Create_Contact')
+                .withVFLabel('Create Contact')
+                .withAdditionalParameter('VAR_LeadSource', 'Web')
+                .getApexPage();
+
+            MetadataService.MetadataPort service = createService();
+
+            List<MetadataService.SaveResult> results =
+                service.createMetadata(
+                    new MetadataService.Metadata[] { apexPage });
+            handleSaveResults(results[0], res);
+
+            res.message = 'Success';
+            res.success = true;
+        }
+        catch(Exception ex) {
+            res.success = false;
+        }
+        return res;
+    }
+
+    public static MetadataService.MetadataPort createService()
+    {
+        MetadataService.MetadataPort service = new MetadataService.MetadataPort();
+        service.SessionHeader = new MetadataService.SessionHeader_element();
+        service.SessionHeader.sessionId = UserInfo.getSessionId();
+        return service;
     }
 
     /**
      * Example helper method to interpret a SaveResult, throws an exception if errors are found
      **/
-    private static void handleSaveResults(MetadataService.SaveResult saveResult, Response resp)
+    private static void handleSaveResults(MetadataService.SaveResult saveResult, FlowMakerResponse resp)
     {
         // Nothing to see?
         if(saveResult==null || saveResult.success) {
@@ -40,7 +46,7 @@ global with sharing class FlowMaker {
         }
 
         if(!saveResult.success && saveResult.errors == null) {
-            throw new MetadataServiceExamplesException('Request failed with no specified error.');
+            throw new Flow.FlowException('Request failed with no specified error.');
         }
         String message = saveResult.errors.size()==1
             ? 'Error '
@@ -56,6 +62,13 @@ global with sharing class FlowMaker {
                 ( error.fields!=null && error.fields.size()>0 ?
                     ' Fields ' + String.join(error.fields, ',') + '.' : '' ) );
         }
-        throw new MetadataServiceExamplesException(String.join(messages, ' '));
+        throw new Flow.FlowException(String.join(messages, ' '));
+    }
+
+    global class FlowMakerRequest {
+
+    }
+    global class FlowMakerResponse extends Response {
+
     }
 }

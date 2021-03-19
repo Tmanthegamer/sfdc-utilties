@@ -1,4 +1,4 @@
-global class Response {
+global virtual class Response {
     @AuraEnabled global Boolean success;
     @AuraEnabled global String message;
     @AuraEnabled global Map<String, Object> values;
