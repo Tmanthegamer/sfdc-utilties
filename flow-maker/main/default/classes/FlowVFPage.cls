@@ -14,9 +14,7 @@
  *  .buildMetadataPackage()
  *  .getApexPage();
  */
-global with sharing class FlowVFPage {
-
-    public static final String ERROR_FLOW_NAME_MISSING = 'Flow name not specified';
+public with sharing class FlowVFPage extends Flow {
 
     /**
      * Base Template for Apex Pages, use in junction with m_baseTemplate
@@ -39,14 +37,13 @@ global with sharing class FlowVFPage {
     private static final String PARAMETER_TEMPLATE = '<apex:param name="{0}" value="{1}"/>';
 
     private Flow.ApexPageAttributes m_pageAttributes;
-    private Flow.FlowAttributes m_flowAttributes;
     private MetadataService.ApexPage m_apexpage;
 
     /**
-     * @description Global Constructor for FlowVFPage
+     * @description public Constructor for FlowVFPage
      * @return   new FlowVFPage, can leverage other methods for method chaining
      */
-    global FlowVFPage() {
+    public FlowVFPage() {
         this(new Flow.ApexPageAttributes(), new Flow.FlowAttributes());
     }
 
@@ -57,18 +54,8 @@ global with sharing class FlowVFPage {
      * @return                return description
      */
     private FlowVFPage(Flow.ApexPageAttributes pageAttributes, Flow.FlowAttributes flowAttributes) {
+        super(flowAttributes);
         this.m_pageAttributes = pageAttributes;
-        this.m_flowAttributes = flowAttributes;
-    }
-
-    /**
-     * @description Set the Flow.FlowAttributes and return the FlowVFPage for method chaining
-     * @param  Flow.FlowAttributes Pre-constructed Flow.FlowAttributes object
-     * @return                this, used for method chaining
-     */
-    global FlowVFPage withFlowAttributes(Flow.FlowAttributes flowAttributes) {
-        this.m_flowAttributes = flowAttributes;
-        return this;
     }
 
     /**
@@ -76,18 +63,8 @@ global with sharing class FlowVFPage {
      * @param  Flow.ApexPageAttributes Pre-constructed Flow.ApexPageAttributes object
      * @return                this, used for method chaining
      */
-    global FlowVFPage withApexPageAttributes(Flow.ApexPageAttributes pageAttributes) {
+    public FlowVFPage withApexPageAttributes(Flow.ApexPageAttributes pageAttributes) {
         this.m_pageAttributes = pageAttributes;
-        return this;
-    }
-
-    /**
-     * @description Set the Flow's name and return the FlowVFPage for method chaining
-     * @param  flowName API Name of the Flow
-     * @return          this, used for method chaining
-     */
-    global FlowVFPage withFlowName(String flowName) {
-        this.m_flowAttributes.flowName = flowName;
         return this;
     }
 
@@ -96,7 +73,7 @@ global with sharing class FlowVFPage {
      * @param  fullName Name of the Visualforce page
      * @return          this, used for method chaining
      */
-    global FlowVFPage withVFName(String fullName) {
+    public FlowVFPage withVFName(String fullName) {
         this.m_pageAttributes.fullName = fullName;
         return this;
     }
@@ -106,33 +83,8 @@ global with sharing class FlowVFPage {
      * @param  label Friendly Label when viewing the Visualforce Page
      * @return       this, used for method chaining
      */
-    global FlowVFPage withVFLabel(String label) {
+    public FlowVFPage withVFLabel(String label) {
         this.m_pageAttributes.label = label;
-        return this;
-    }
-
-    /**
-     * @description Sets a key/value pair for the Flow Parameters to be generated
-     * by the content. Can be used for method chaining
-     * @param  key   Flow Variable Input
-     * @param  value Flow Variable Input's value
-     * @return       this, can be used for method chaining
-     */
-    global FlowVFPage withAdditionalParameter(String key, String value) {
-        this.m_flowAttributes.additionalParameters.put(key, value);
-        return this;
-    }
-
-    /**
-     * @description Sets many key/value for the Flow Parameters to be generated
-     * by the content. Can be used for method chaining
-     * @param  values Map<String, String> to be put into the Flow Variable input and values
-     * @return        this, can be used for method chaining
-     */
-    global FlowVFPage withAdditionalParameters(Map<String, String> values) {
-        for(String key : values.keySet()) {
-            withAdditionalParameter(key, values.get(key));
-        }
         return this;
     }
 
@@ -141,51 +93,21 @@ global with sharing class FlowVFPage {
      * used by the MetadataService to create the Visualforce Page
      * @return   this, can be used for method chaining
      */
-    global FlowVFPage buildMetadataPackage() {
-        this.m_apexPage = new MetadataService.ApexPage();
+    protected override Flow buildMetadataPackage() {
+        MetadataService.ApexPage apexPage = new MetadataService.ApexPage();
 
         String errorMsg = validate();
         if(String.isNotBlank(errorMsg)) {
-            throw new FlowVFPageException(errorMsg);
+            throw new Flow.FlowException(errorMsg);
         }
 
-        this.m_apexPage.apiVersion = this.m_pageAttributes.apiVersion;
-        this.m_apexPage.fullName = this.m_pageAttributes.fullName;
-        this.m_apexPage.label = String.isNotBlank(this.m_pageAttributes.label) ? this.m_pageAttributes.label : this.m_pageAttributes.fullName;
-        this.m_apexPage.content = EncodingUtil.base64Encode(Blob.valueOf(prepareContent()));
+        apexPage.apiVersion = this.m_pageAttributes.apiVersion;
+        apexPage.fullName = this.m_pageAttributes.fullName;
+        apexPage.label = String.isNotBlank(this.m_pageAttributes.label) ? this.m_pageAttributes.label : this.m_pageAttributes.fullName;
+        apexPage.content = EncodingUtil.base64Encode(Blob.valueOf(prepareContent()));
 
+        this.m_metadata = (MetadataService.Metadata) apexPage;
         return this;
-    }
-
-    /**
-     * @description Validates all of the inputs to ensure tha the Metadata generation has
-     * the best chance to succeed.
-     * @return content to be used for the Apex Page
-     */
-    @TestVisible
-    private String validate() {
-        List<String> errors = new List<String>();
-        if(String.isBlank(this.m_flowAttributes.flowName)) {
-            errors.add(ERROR_FLOW_NAME_MISSING);
-        }
-
-        return String.join(errors, '\n');
-    }
-
-    /**
-     * @description Given a template and a map of values, it will replace each of the {#}
-     * slots with the given list of values. Couldn't have used String.format because the
-     * method doesn't like having curly braces as part of the values
-     * @param  template Template String with "{0}" or other numbers inside
-     * @param  values   List of values to be used as replacements
-     * @return          Formated template string with each "{0}" replaced with the value from the list
-     */
-    private static String formattedTemplate(String template, List<String> values) {
-        for(Integer i = 0; i < values.size(); i++) {
-            String index = '{'+i+'}';
-            template = template.replace(index, values[i]);
-        }
-        return template;
     }
 
     /**
@@ -212,7 +134,7 @@ global with sharing class FlowVFPage {
             finishLocation = 'finishLocation="{!$CurrentPage.URL}"';
         }
 
-        String content = formattedTemplate(BASE_TEMPLATE, new List<String>{this.m_flowAttributes.flowName, finishLocation, parameters});
+        String content = formattedTemplate(BASE_TEMPLATE, new List<String>{this.m_flowAttributes.fullName, finishLocation, parameters});
 
         return content;
     }
@@ -224,12 +146,9 @@ global with sharing class FlowVFPage {
      * @return   ApexPage to be used with MetadataService
      */
     public MetadataService.ApexPage getApexPage() {
-        if(this.m_apexpage == null) {
-            buildMetadataPackage();
-        }
-        return this.m_apexpage;
+        return (MetadataService.ApexPage) getMetadata();
     }
 
     /** Exception class used when validations fail */
-    global class FlowVFPageException extends Exception{}
+    public class FlowVFPageException extends Exception{}
 }

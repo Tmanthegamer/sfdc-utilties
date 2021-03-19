@@ -1,21 +1,23 @@
 global with sharing class FlowMaker {
 
-    global static FlowMakerResponse createVFPage() {
-
+    global static FlowMakerResponse createVFPage(ApexPageRequest request) {
         FlowMakerResponse res = new FlowMakerResponse();
+
         try {
-            MetadataService.ApexPage apexPage = new FlowVFPage()
-                .withFlowName('Create_Contact')
-                .withVFName('Create_Contact')
-                .withVFLabel('Create Contact')
-                .withAdditionalParameter('VAR_LeadSource', 'Web')
+            FlowVFPage flowMake = (FlowVFPage) new FlowVFPage()
+                .withFlowName(request.flowName)
+                .withAdditionalParameters(request.flowAttributes);
+
+            MetadataService.Metadata meta = flowMake
+                .withVFName(request.apiName)
+                .withVFLabel(request.label)
                 .getApexPage();
 
             MetadataService.MetadataPort service = createService();
 
             List<MetadataService.SaveResult> results =
                 service.createMetadata(
-                    new MetadataService.Metadata[] { apexPage });
+                    new MetadataService.Metadata[] { meta });
             handleSaveResults(results[0], res);
 
             res.message = 'Success';
@@ -65,8 +67,9 @@ global with sharing class FlowMaker {
         throw new Flow.FlowException(String.join(messages, ' '));
     }
 
-    global class FlowMakerRequest {
-
+    global class ApexPageRequest extends Flow.Request {
+        global String label;
+        global Map<String, String> flowAttributes = new Map<String, String>();
     }
     global class FlowMakerResponse extends Response {
 
