@@ -7,10 +7,6 @@
     {
       "path": "data-stamper",
       "default": false
-    },
-    {
-      "path": "fflib",
-      "default": false
     }
   ],
   "namespace": "",
