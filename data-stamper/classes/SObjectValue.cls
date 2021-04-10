@@ -1,23 +1,27 @@
 public class SObjectValue {
 
+    private Boolean hasValue = false;
+
     public SObject retVal;
-    public Object value;
     public String finalField;
     public SObjectStamperConstants.DataType retType;
-
-    private Boolean hasValue = false;
+    public Object value {
+        get {
+            if(!this.hasValue && retVal != null) {
+                this.value = retVal.get(finalField);
+                this.hasValue = true;
+            }
+            else {
+                this.value = null;
+            }
+            return this.value;
+        }
+        set;
+    }
 
     public SObjectValue(SObject retVal, String finalField, SObjectStamperConstants.DataType retType) {
         this.retVal = retVal;
         this.finalField = finalField;
         this.retType = retType;
-    }
-
-    public Object getValue() {
-        if(!hasValue) {
-            this.value = retVal.get(finalField);
-            hasValue = true;
-        }
-        return this.value;
     }
 }

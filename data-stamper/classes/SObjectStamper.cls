@@ -118,8 +118,8 @@ public without sharing class SObjectStamper {
             SObject requeriedRecord = requeriedRecords.get(recordId);
 
             for(SObject_Stamper__mdt stamper : getStampers(sobjType)) {
-                SObjectValue value = getSObjectValue(requeriedRecord, stamper.Formula__c);
-                record.put(stamper.SObject_Field__c, value.getValue());
+                SObjectValue result = getSObjectValue(requeriedRecord, stamper.Formula__c);
+                record.put(stamper.SObject_Field__c, result.value);
             }
         }
 
